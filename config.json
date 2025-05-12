@@ -1,0 +1,6 @@
+{
+    "printer_name": "POS-58",
+    "host": "0.0.0.0",
+    "port": 9000,
+    "cors_origin": ["*"]
+}
