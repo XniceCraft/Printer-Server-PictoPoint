@@ -1,6 +1,7 @@
 """
 Main program
 """
+
 from typing import List
 import uvicorn
 from fastapi import FastAPI
@@ -10,65 +11,100 @@ from escpos.printer import Win32Raw
 from pydantic import BaseModel
 from config_parser import Config
 
+
+def format_rupiah(amount: int) -> str:
+    """
+    Format ke rupiah
+
+    Parameters
+    ----------
+    amount : int
+        Jumlah
+
+    Returns
+    -------
+    str
+    """
+    return f"Rp{amount:,.0f}".replace(",", ".")
+
+
 class OrderItem(BaseModel):
     """
     Representation of OrderItem model
     """
+
     name: str
     price: int
     quantity: int
+
 
 class Order(BaseModel):
     """
     Representation of Order model
     """
+
     order_id: int
     items: List[OrderItem]
 
+
 app = FastAPI()
 config = Config.load()
-printer = Win32Raw(printer_name='POS-58')
+printer = Win32Raw(printer_name="POS-58")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=config.cors_domain,
+    allow_origins=config.cors_origin,
     allow_credentials=True,
     allow_methods=["POST"],
     allow_headers=["Content-Type"],
 )
 
-@app.post('/print_receipt')
+
+@app.post("/print_receipt")
 async def print_receipt(order: Order):
     """
     Print the receipt
     """
     try:
-        printer.set(align='center', bold=True, width=2, height=2)
+        printer.set(align="center", bold=True, width=3, height=3, custom_size=True)
         printer.textln("PictoPoint\n")
 
-        printer.set(align='left', bold=False, width=1, height=1)
+        printer.set_with_default(align="left", bold=False)
         printer.text("No. Pesanan: ")
         printer.set(bold=True)
-        printer.textln(str(order.order_id))
+        printer.textln(f"{order.order_id}")
         printer.textln()
 
         printer.set(bold=False)
         for item in order.items:
-            line = f"{item.name} x{item.quantity}".ljust(20)
-            total = item.price * item.quantity
-            line += f"{total:>8}\n"
+            name_qty = f"{item.name} x{item.quantity}"
+            total = format_rupiah(item.price * item.quantity)
+
+            if len(name_qty) > 20:
+                name_qty = name_qty[:20]
+
+            line = f"{name_qty:<20}{total:>12}\n"
             printer.text(line)
 
         printer.textln()
-        printer.set(align='center')
+
+        total_all = sum(item.price * item.quantity for item in order.items)
+        printer.textln("-" * 32)
+        printer.set(bold=True)
+        printer.text(f"{'Total':<20}{format_rupiah(total_all):>12}\n")
+        printer.set(bold=False)
+        printer.textln("-" * 32)
+
+        printer.set(align="center")
         printer.textln("Terima kasih!")
         printer.cut()
 
         printer.close()
     except Exception as exc:
-        return JSONResponse({'error': str(exc)}, 500)
+        return JSONResponse({"error": str(exc)}, 500)
 
-    return JSONResponse({'message': 'Struk berhasil dibuat'}, 201)
+    return JSONResponse({"message": "Struk berhasil dibuat"}, 201)
+
 
 if __name__ == "__main__":
-    uvicorn.run('main:app', host=config.host, port=config.port, reload=True)
+    uvicorn.run(app, host=config.host, port=config.port)

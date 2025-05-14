@@ -17,7 +17,7 @@ class Config:
     printer_name: str
     host: str
     port: int
-    cors_domain: List[str]
+    cors_origin: List[str]
 
     @classmethod
     def load(cls) -> "Config":
@@ -36,16 +36,16 @@ class Config:
         assert "port" in json_obj and isinstance(
             json_obj["port"], int
         ), "Missing or invalid 'port'"
-        assert "cors_domain" in json_obj and isinstance(
-            json_obj["cors_domain"], list
-        ), "Missing or invalid 'cors_domain'"
+        assert "cors_origin" in json_obj and isinstance(
+            json_obj["cors_origin"], list
+        ), "Missing or invalid 'cors_origin'"
         assert all(
-            isinstance(domain, str) for domain in json_obj["cors_domain"]
-        ), "'cors_domain' must be a list of strings"
+            isinstance(domain, str) for domain in json_obj["cors_origin"]
+        ), "'cors_origin' must be a list of strings"
 
         return cls(
             printer_name=json_obj["printer_name"],
             host=json_obj["host"],
             port=json_obj["port"],
-            cors_domain=json_obj["cors_domain"],
+            cors_origin=json_obj["cors_origin"],
         )
