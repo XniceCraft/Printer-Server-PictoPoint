@@ -28,7 +28,7 @@ jobs:
 
     - name: Build with PyInstaller
       run: |
-        pyinstaller --onefile --add-data "site-packages\escpos\capabilities.json;escpos" main.py
+        pyinstaller --collect-data escpos --onefile main.py
       shell: cmd
 
     - name: Upload build artifacts
