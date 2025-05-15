@@ -47,6 +47,14 @@ class Order(BaseModel):
     items: List[OrderItem]
 
 
+class OrderNumber(BaseModel):
+    """
+    Representation of OrderNumber model
+    """
+
+    order_id: int
+
+
 app = FastAPI()
 config = Config.load()
 printer = Win32Raw(printer_name="POS-58")
@@ -97,6 +105,33 @@ async def print_receipt(order: Order):
 
         printer.set(align="center")
         printer.textln("Terima kasih!")
+        printer.cut()
+
+        printer.close()
+    except Exception as exc:
+        return JSONResponse({"error": str(exc)}, 500)
+
+    return JSONResponse({"message": "Struk berhasil dibuat"}, 201)
+
+
+@app.post("/print_number")
+async def print_number(order: OrderNumber):
+    """
+    Print the receipt
+    """
+    try:
+        printer.set(align="center", bold=True, width=3, height=3, custom_size=True)
+        printer.textln("PictoPoint")
+        printer.textln()
+
+        printer.set(width=8, height=8, custom_size=True)
+        printer.textln(f"{order.order_id}")
+        printer.textln()
+
+        printer.set(
+            width=4, height=4, custom_size=True
+        )
+        printer.textln("Harap bawa nomor ke kasir!")
         printer.cut()
 
         printer.close()
