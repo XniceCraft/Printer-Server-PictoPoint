@@ -2,3 +2,4 @@ python-escpos
 pywin32
 fastapi
 uvicorn
+pyinstaller

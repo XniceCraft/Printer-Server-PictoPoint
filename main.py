@@ -2,14 +2,16 @@
 Main program
 """
 
-from typing import List
+from typing import Literal, List
 import uvicorn
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from escpos.printer import Win32Raw
 from pydantic import BaseModel
 from config_parser import Config
+
+payment_method_str = {"cash": "Cash", "e-wallet": "E-Wallet"}
 
 
 def format_rupiah(amount: int) -> str:
@@ -28,9 +30,46 @@ def format_rupiah(amount: int) -> str:
     return f"Rp{amount:,.0f}".replace(",", ".")
 
 
+def create_justify_string(left: str, right: str, max_char_row: int) -> str:
+    """
+    Justify between two strings in a row
+
+    Parameters
+    ----------
+    left : str
+        Left string
+    right : str
+        Right string
+    max_char_row : int
+        Max characters in a row
+
+    Returns
+    -------
+    str
+    """
+    right_len = len(right)
+    left_max_len = max_char_row - right_len
+    if len(left) > left_max_len:
+        left = left[:left_max_len]
+    return f"{left:<{left_max_len}}{right}"
+
+
+class Transaction(BaseModel):
+    """
+    Represent Transaction Model
+    """
+
+    cashier: str
+    payment_method: Literal["cash", "e-wallet"]
+    amount: int
+    paid_amount: int
+    change: int
+    paid_at: str
+
+
 class OrderItem(BaseModel):
     """
-    Representation of OrderItem model
+    Represent OrderItem model
     """
 
     name: str
@@ -40,16 +79,17 @@ class OrderItem(BaseModel):
 
 class Order(BaseModel):
     """
-    Representation of Order model
+    Represent Order model
     """
 
     order_id: int
+    transaction: Transaction
     items: List[OrderItem]
 
 
 class OrderNumber(BaseModel):
     """
-    Representation of OrderNumber model
+    Represent OrderNumber model
     """
 
     order_id: int
@@ -57,8 +97,6 @@ class OrderNumber(BaseModel):
 
 app = FastAPI()
 config = Config.load()
-printer = Win32Raw(printer_name="POS-58")
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=config.cors_origin,
@@ -69,39 +107,75 @@ app.add_middleware(
 
 
 @app.post("/print_receipt")
-async def print_receipt(order: Order):
+async def print_receipt(order: Order, printer_id: int):
     """
     Print the receipt
     """
+    if printer_id < 1 or len(config.printers) < printer_id:
+        raise HTTPException(status_code=422, detail="Printer id isn't valid")
+
+    printer = Win32Raw(config.printers[printer_id - 1].printer_name)
     try:
+        max_char_row = config.printers[printer_id - 1].profile["max_char_row"]
+
         printer.set(align="center", bold=True, width=3, height=3, custom_size=True)
         printer.textln("PictoPoint\n")
 
         printer.set_with_default(align="left", bold=False)
+        printer.textln("-" * max_char_row)
+
         printer.text("No. Pesanan: ")
         printer.set(bold=True)
         printer.textln(f"{order.order_id}")
+
+        printer.set(bold=False)
+        printer.textln(f"Waktu: {order.transaction.paid_at}")
+        printer.textln(f"Kasir: {order.transaction.cashier}")
+
+        printer.textln("-" * max_char_row)
         printer.textln()
 
         printer.set(bold=False)
         for item in order.items:
             name_qty = f"{item.name} x{item.quantity}"
             total = format_rupiah(item.price * item.quantity)
-
-            if len(name_qty) > 20:
-                name_qty = name_qty[:20]
-
-            line = f"{name_qty:<20}{total:>12}\n"
-            printer.text(line)
+            printer.textln(create_justify_string(name_qty, total, max_char_row))
 
         printer.textln()
 
-        total_all = sum(item.price * item.quantity for item in order.items)
-        printer.textln("-" * 32)
+        printer.textln("-" * max_char_row)
         printer.set(bold=True)
-        printer.text(f"{'Total':<20}{format_rupiah(total_all):>12}\n")
+
+        printer.textln(
+            create_justify_string("Total: ", format_rupiah(order.transaction.amount), max_char_row)
+        )
+
         printer.set(bold=False)
-        printer.textln("-" * 32)
+        printer.textln(
+            create_justify_string(
+                "Metode Bayar: ",
+                payment_method_str[order.transaction.payment_method],
+                max_char_row,
+            )
+        )
+        printer.textln(
+            create_justify_string(
+                "Bayar: ",
+                format_rupiah(order.transaction.paid_amount),
+                max_char_row,
+            )
+        )
+
+        if order.transaction.payment_method == "cash":
+            printer.textln(
+                create_justify_string(
+                    "Kembalian: ",
+                    format_rupiah(order.transaction.change),
+                    max_char_row,
+                )
+            )
+
+        printer.textln("-" * max_char_row)
 
         printer.set(align="center")
         printer.textln("Terima kasih!")
@@ -115,10 +189,14 @@ async def print_receipt(order: Order):
 
 
 @app.post("/print_number")
-async def print_number(order: OrderNumber):
+async def print_number(order: OrderNumber, printer_id: int):
     """
     Print the receipt
     """
+    if printer_id < 1 or len(config.printers) < printer_id:
+        raise HTTPException(status_code=422, detail="Printer id isn't valid")
+
+    printer = Win32Raw(config.printers[printer_id - 1].printer_name)
     try:
         printer.set(align="center", bold=True, width=3, height=3, custom_size=True)
         printer.textln("PictoPoint")
@@ -128,10 +206,8 @@ async def print_number(order: OrderNumber):
         printer.textln(f"{order.order_id}")
         printer.textln()
 
-        printer.set(
-            width=4, height=4, custom_size=True
-        )
-        printer.textln("Harap bawa nomor ke kasir!")
+        printer.set(width=4, height=4, custom_size=True)
+        printer.textln("Harap bawa ke kasir!")
         printer.cut()
 
         printer.close()
