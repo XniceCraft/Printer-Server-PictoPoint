@@ -28,7 +28,7 @@ jobs:
 
     - name: Build with PyInstaller
       run: |
-        pyinstaller --collect-data escpos --onefile main.py
+        build.bat
       shell: cmd
 
     - name: Upload build artifacts

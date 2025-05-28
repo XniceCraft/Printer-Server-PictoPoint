@@ -9,10 +9,16 @@ from dataclasses import dataclass, field
 
 printer_data: Dict[str, Dict[str, Any]] = {
     "POS-58": {
-        "max_char_row": 32
+        "max_char_row": 32,
+        "image_width": 384
     },
     "POS-80": {
-        "max_char_row": 48
+        "max_char_row": 48,
+        "image_width": 512
+    },
+    "EPSON TM-T82": {
+        "max_char_row": 48,
+        "image_width": 512
     }
 }
 

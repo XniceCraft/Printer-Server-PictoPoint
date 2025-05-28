@@ -8,6 +8,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from escpos.printer import Win32Raw
+from PIL import Image
 from pydantic import BaseModel
 from config_parser import Config
 
@@ -54,6 +55,26 @@ def create_justify_string(left: str, right: str, max_char_row: int) -> str:
     return f"{left:<{left_max_len}}{right}"
 
 
+def get_image(image_width: int) -> Image.Image:
+    """
+    Handle logo image
+
+    Parameters
+    ----------
+    image_width : int
+        Logo
+
+    Returns
+    -------
+    Image.Image
+    """
+    image = Image.open("assets/Picto 7.png")
+    w_percent = image_width / float(image.size[0])
+    h_size = int((float(image.size[1]) * float(w_percent)))
+    resized_image = image.resize((image_width, h_size))
+    return resized_image.convert("1")
+
+
 class Transaction(BaseModel):
     """
     Represent Transaction Model
@@ -61,7 +82,6 @@ class Transaction(BaseModel):
 
     cashier: str
     payment_method: Literal["cash", "e-wallet"]
-    amount: int
     paid_amount: int
     change: int
     paid_at: str
@@ -83,6 +103,8 @@ class Order(BaseModel):
     """
 
     order_id: int
+    subtotal: int
+    total: int
     transaction: Transaction
     items: List[OrderItem]
 
@@ -117,10 +139,9 @@ async def print_receipt(order: Order, printer_id: int):
     printer = Win32Raw(config.printers[printer_id - 1].printer_name)
     try:
         max_char_row = config.printers[printer_id - 1].profile["max_char_row"]
+        image_width = config.printers[printer_id - 1].profile["image_width"]
 
-        printer.set(align="center", bold=True, width=3, height=3, custom_size=True)
-        printer.textln("PictoPoint\n")
-
+        printer.image(get_image(image_width), center=True)
         printer.set_with_default(align="left", bold=False)
         printer.textln("-" * max_char_row)
 
@@ -144,11 +165,26 @@ async def print_receipt(order: Order, printer_id: int):
         printer.textln()
 
         printer.textln("-" * max_char_row)
-        printer.set(bold=True)
+        printer.textln(
+            create_justify_string(
+                "Subtotal: ", format_rupiah(order.subtotal), max_char_row
+            )
+        )
 
         printer.textln(
-            create_justify_string("Total: ", format_rupiah(order.transaction.amount), max_char_row)
+            create_justify_string(
+                "Biaya Penanganan: ", format_rupiah(order.total - order.subtotal), max_char_row
+            )
         )
+
+        printer.textln("-" * max_char_row)
+        printer.set(bold=True)
+        printer.textln(
+            create_justify_string(
+                "Total: ", format_rupiah(order.total), max_char_row
+            )
+        )
+        printer.textln("-" * max_char_row)
 
         printer.set(bold=False)
         printer.textln(
@@ -198,15 +234,18 @@ async def print_number(order: OrderNumber, printer_id: int):
 
     printer = Win32Raw(config.printers[printer_id - 1].printer_name)
     try:
-        printer.set(align="center", bold=True, width=3, height=3, custom_size=True)
-        printer.textln("PictoPoint")
+        image_width = config.printers[printer_id - 1].profile["image_width"]
+
+        printer.image(get_image(image_width), center=True)
         printer.textln()
 
-        printer.set(width=8, height=8, custom_size=True)
+        printer.set_with_default(
+            align="center", double_width=True, double_height=True, bold=True
+        )
         printer.textln(f"{order.order_id}")
         printer.textln()
 
-        printer.set(width=4, height=4, custom_size=True)
+        printer.set_with_default(align="center")
         printer.textln("Harap bawa ke kasir!")
         printer.cut()
 

@@ -1,3 +1,3 @@
 @echo off
-pyinstaller --onefile --add-data "venv\Lib\site-packages\escpos\capabilities.json;escpos" main.py
+pyinstaller --name "Printer Server" --icon "assets/icon.ico" --onefile --collect-data escpos main.py
 pause
