@@ -4,6 +4,7 @@ Parse the config
 
 # pylint: disable=line-too-long
 import json
+import os.path
 from typing import Any, List, Dict
 from dataclasses import dataclass, field
 
@@ -71,6 +72,9 @@ class Config:
         """
         Load the config
         """
+        if os.path.isfile('config.json'):
+            cls.write_default()
+
         with open("./config.json", encoding="utf-8") as file:
             json_obj = json.load(file)
 

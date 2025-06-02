@@ -2,6 +2,9 @@
 Main program
 """
 
+#pylint: disable=no-member, protected-access
+import os
+import sys
 from typing import Literal, List
 import uvicorn
 from fastapi import FastAPI, HTTPException
@@ -27,6 +30,7 @@ def format_rupiah(amount: int) -> str:
     Returns
     -------
     str
+        Formatted string in Rupiah currency format
     """
     return f"Rp{amount:,.0f}".replace(",", ".")
 
@@ -38,21 +42,43 @@ def create_justify_string(left: str, right: str, max_char_row: int) -> str:
     Parameters
     ----------
     left : str
-        Left string
+        Left string to be displayed
     right : str
-        Right string
+        Right string to be displayed
     max_char_row : int
         Max characters in a row
 
     Returns
     -------
     str
+        Justified string with left and right components
     """
     right_len = len(right)
     left_max_len = max_char_row - right_len
     if len(left) > left_max_len:
         left = left[:left_max_len]
     return f"{left:<{left_max_len}}{right}"
+
+
+def asset(path: str) -> str:
+    """
+    Get the correct path for an asset file
+
+    Parameters
+    ----------
+    path : str
+        Relative path to the asset
+    Returns
+    -------
+    str
+        Full path to the asset file
+    """
+    try:
+        base_path = sys._MEIPASS # type: ignore
+    except AttributeError:
+        base_path = os.path.abspath(".")
+
+    return os.path.join(base_path, path)
 
 
 def get_image(image_width: int) -> Image.Image:
@@ -62,13 +88,14 @@ def get_image(image_width: int) -> Image.Image:
     Parameters
     ----------
     image_width : int
-        Logo
+        Width to resize the image to
 
     Returns
     -------
     Image.Image
+        Resized and converted image ready for printing
     """
-    image = Image.open("assets/Picto 7.png")
+    image = Image.open(asset("assets/Picto 7.png"))
     w_percent = image_width / float(image.size[0])
     h_size = int((float(image.size[1]) * float(w_percent)))
     resized_image = image.resize((image_width, h_size))
@@ -78,6 +105,19 @@ def get_image(image_width: int) -> Image.Image:
 class Transaction(BaseModel):
     """
     Represent Transaction Model
+
+    Attributes
+    ----------
+    cashier : str
+        Name of the cashier
+    payment_method : Literal["cash", "e-wallet"]
+        Method of payment used
+    paid_amount : int
+        Amount paid by customer
+    change : int
+        Change given back to customer
+    paid_at : str
+        Timestamp of payment
     """
 
     cashier: str
@@ -90,6 +130,15 @@ class Transaction(BaseModel):
 class OrderItem(BaseModel):
     """
     Represent OrderItem model
+
+    Attributes
+    ----------
+    name : str
+        Name of the ordered item
+    price : int
+        Price per unit of the item
+    quantity : int
+        Quantity of items ordered
     """
 
     name: str
@@ -100,6 +149,19 @@ class OrderItem(BaseModel):
 class Order(BaseModel):
     """
     Represent Order model
+
+    Attributes
+    ----------
+    order_id : int
+        Unique identifier for the order
+    subtotal : int
+        Subtotal amount before handling fees
+    total : int
+        Total amount including handling fees
+    transaction : Transaction
+        Transaction details for the order
+    items : List[OrderItem]
+        List of items in the order
     """
 
     order_id: int
@@ -112,6 +174,11 @@ class Order(BaseModel):
 class OrderNumber(BaseModel):
     """
     Represent OrderNumber model
+
+    Attributes
+    ----------
+    order_id : int
+        Unique identifier for the order
     """
 
     order_id: int
@@ -132,6 +199,23 @@ app.add_middleware(
 async def print_receipt(order: Order, printer_id: int):
     """
     Print the receipt
+
+    Parameters
+    ----------
+    order : Order
+        Order data to be printed
+    printer_id : int
+        ID of the printer to use
+
+    Returns
+    -------
+    JSONResponse
+        Success or error message
+
+    Raises
+    ------
+    HTTPException
+        If printer_id is invalid
     """
     if printer_id < 1 or len(config.printers) < printer_id:
         raise HTTPException(status_code=422, detail="Printer id isn't valid")
@@ -227,7 +311,24 @@ async def print_receipt(order: Order, printer_id: int):
 @app.post("/print_number")
 async def print_number(order: OrderNumber, printer_id: int):
     """
-    Print the receipt
+    Print the order number
+
+    Parameters
+    ----------
+    order : OrderNumber
+        Order number data to be printed
+    printer_id : int
+        ID of the printer to use
+
+    Returns
+    -------
+    JSONResponse
+        Success or error message
+
+    Raises
+    ------
+    HTTPException
+        If printer_id is invalid
     """
     if printer_id < 1 or len(config.printers) < printer_id:
         raise HTTPException(status_code=422, detail="Printer id isn't valid")
