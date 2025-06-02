@@ -225,83 +225,84 @@ async def print_receipt(order: Order, printer_id: int):
         max_char_row = config.printers[printer_id - 1].profile["max_char_row"]
         image_width = config.printers[printer_id - 1].profile["image_width"]
 
-        printer.image(get_image(image_width), center=True)
-        printer.set_with_default(align="left", bold=False)
-        printer.textln("-" * max_char_row)
+        for _ in range(3):
+            printer.image(get_image(image_width), center=True)
+            printer.set_with_default(align="left", bold=False)
+            printer.textln("-" * max_char_row)
+        
+            printer.text("No. Pesanan: ")
+            printer.set(bold=True)
+            printer.textln(f"{order.order_id}")
 
-        printer.text("No. Pesanan: ")
-        printer.set(bold=True)
-        printer.textln(f"{order.order_id}")
+            printer.set(bold=False)
+            printer.textln(f"Waktu: {order.transaction.paid_at}")
+            printer.textln(f"Kasir: {order.transaction.cashier}")
 
-        printer.set(bold=False)
-        printer.textln(f"Waktu: {order.transaction.paid_at}")
-        printer.textln(f"Kasir: {order.transaction.cashier}")
+            printer.textln("-" * max_char_row)
+            printer.textln()
 
-        printer.textln("-" * max_char_row)
-        printer.textln()
+            printer.set(bold=False)
+            for item in order.items:
+                name_qty = f"{item.name} x{item.quantity}"
+                total = format_rupiah(item.price * item.quantity)
+                printer.textln(create_justify_string(name_qty, total, max_char_row))
 
-        printer.set(bold=False)
-        for item in order.items:
-            name_qty = f"{item.name} x{item.quantity}"
-            total = format_rupiah(item.price * item.quantity)
-            printer.textln(create_justify_string(name_qty, total, max_char_row))
+            printer.textln()
 
-        printer.textln()
-
-        printer.textln("-" * max_char_row)
-        printer.textln(
-            create_justify_string(
-                "Subtotal: ", format_rupiah(order.subtotal), max_char_row
-            )
-        )
-
-        printer.textln(
-            create_justify_string(
-                "Biaya Penanganan: ", format_rupiah(order.total - order.subtotal), max_char_row
-            )
-        )
-
-        printer.textln("-" * max_char_row)
-        printer.set(bold=True)
-        printer.textln(
-            create_justify_string(
-                "Total: ", format_rupiah(order.total), max_char_row
-            )
-        )
-        printer.textln("-" * max_char_row)
-
-        printer.set(bold=False)
-        printer.textln(
-            create_justify_string(
-                "Metode Bayar: ",
-                payment_method_str[order.transaction.payment_method],
-                max_char_row,
-            )
-        )
-        printer.textln(
-            create_justify_string(
-                "Bayar: ",
-                format_rupiah(order.transaction.paid_amount),
-                max_char_row,
-            )
-        )
-
-        if order.transaction.payment_method == "cash":
+            printer.textln("-" * max_char_row)
             printer.textln(
                 create_justify_string(
-                    "Kembalian: ",
-                    format_rupiah(order.transaction.change),
+                    "Subtotal: ", format_rupiah(order.subtotal), max_char_row
+                )
+            )
+
+            printer.textln(
+                create_justify_string(
+                    "Biaya Penanganan: ", format_rupiah(order.total - order.subtotal), max_char_row
+                )
+            )
+
+            printer.textln("-" * max_char_row)
+            printer.set(bold=True)
+            printer.textln(
+                create_justify_string(
+                    "Total: ", format_rupiah(order.total), max_char_row
+                )
+            )
+            printer.textln("-" * max_char_row)
+
+            printer.set(bold=False)
+            printer.textln(
+                create_justify_string(
+                    "Metode Bayar: ",
+                    payment_method_str[order.transaction.payment_method],
+                    max_char_row,
+                )
+            )
+            printer.textln(
+                create_justify_string(
+                    "Bayar: ",
+                    format_rupiah(order.transaction.paid_amount),
                     max_char_row,
                 )
             )
 
-        printer.textln("-" * max_char_row)
+            if order.transaction.payment_method == "cash":
+                printer.textln(
+                    create_justify_string(
+                        "Kembalian: ",
+                        format_rupiah(order.transaction.change),
+                        max_char_row,
+                    )
+                )
 
-        printer.set(align="center")
-        printer.textln("Terima kasih!")
-        printer.cut()
+            printer.textln("-" * max_char_row)
 
-        printer.close()
+            printer.set(align="center")
+            printer.textln("Terima kasih!")
+            printer.cut()
+
+            printer.close()
     except Exception as exc:
         return JSONResponse({"error": str(exc)}, 500)
 
