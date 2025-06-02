@@ -72,7 +72,7 @@ class Config:
         """
         Load the config
         """
-        if os.path.isfile('config.json'):
+        if not os.path.isfile('config.json'):
             cls.write_default()
 
         with open("./config.json", encoding="utf-8") as file:
