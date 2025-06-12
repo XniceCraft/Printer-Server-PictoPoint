@@ -2,7 +2,7 @@
 Main program
 """
 
-#pylint: disable=no-member, protected-access
+# pylint: disable=no-member, protected-access
 import os
 import sys
 from typing import Literal, List
@@ -74,19 +74,21 @@ def asset(path: str) -> str:
         Full path to the asset file
     """
     try:
-        base_path = sys._MEIPASS # type: ignore
+        base_path = sys._MEIPASS  # type: ignore
     except AttributeError:
         base_path = os.path.abspath(".")
 
     return os.path.join(base_path, path)
 
 
-def get_image(image_width: int) -> Image.Image:
+def get_image(image_width: int, path: str) -> Image.Image:
     """
     Handle logo image
 
     Parameters
     ----------
+    path : str
+        Image path
     image_width : int
         Width to resize the image to
 
@@ -95,7 +97,7 @@ def get_image(image_width: int) -> Image.Image:
     Image.Image
         Resized and converted image ready for printing
     """
-    image = Image.open(asset("assets/Picto 7.png"))
+    image = Image.open(path)
     w_percent = image_width / float(image.size[0])
     h_size = int((float(image.size[1]) * float(w_percent)))
     resized_image = image.resize((image_width, h_size))
@@ -225,11 +227,11 @@ async def print_receipt(order: Order, printer_id: int):
         max_char_row = config.printers[printer_id - 1].profile["max_char_row"]
         image_width = config.printers[printer_id - 1].profile["image_width"]
 
-        for _ in range(3):
-            printer.image(get_image(image_width), center=True)
-            printer.set_with_default(align="left", bold=False)
-            printer.textln("-" * max_char_row)
-        
+        printer.image(get_image(image_width, asset("assets/Picto 7.png")), center=True)
+        printer.set_with_default(align="left", bold=False)
+        printer.textln("-" * max_char_row)
+
+        for i in range(3):
             printer.text("No. Pesanan: ")
             printer.set(bold=True)
             printer.textln(f"{order.order_id}")
@@ -258,7 +260,9 @@ async def print_receipt(order: Order, printer_id: int):
 
             printer.textln(
                 create_justify_string(
-                    "Biaya Penanganan: ", format_rupiah(order.total - order.subtotal), max_char_row
+                    "Biaya Penanganan: ",
+                    format_rupiah(order.total - order.subtotal),
+                    max_char_row,
                 )
             )
 
@@ -300,6 +304,14 @@ async def print_receipt(order: Order, printer_id: int):
 
             printer.set(align="center")
             printer.textln("Terima kasih!")
+
+            if i == 0:
+                printer.textln("\n")
+                printer.textln("Scan QR di bawah untuk melihat AR")
+                printer.textln()
+                printer.image(get_image(image_width, asset("assets/AR QR.png")), center=True)
+                printer.set_with_default(align="center", bold=False)
+
             printer.cut()
 
             printer.close()
@@ -338,7 +350,7 @@ async def print_number(order: OrderNumber, printer_id: int):
     try:
         image_width = config.printers[printer_id - 1].profile["image_width"]
 
-        printer.image(get_image(image_width), center=True)
+        printer.image(get_image(image_width, asset("assets/Picto 7.png")), center=True)
         printer.textln()
 
         printer.set_with_default(
