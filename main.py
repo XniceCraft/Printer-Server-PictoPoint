@@ -307,7 +307,8 @@ async def print_receipt(order: Order, printer_id: int):
 
             if i == 0:
                 printer.textln("\n")
-                printer.textln("Scan QR di bawah ini, untuk mengunduk aplikasi AR")
+                printer.textln("Scan QR di bawah ini,")
+                printer.textln("untuk mengunduh aplikasi AR")
                 printer.textln()
                 printer.image(get_image(image_width, asset("assets/AR QR.png")), center=True)
                 printer.set_with_default(align="center", bold=False)
