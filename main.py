@@ -360,8 +360,8 @@ async def print_number(order: OrderNumber, printer_id: int):
         printer.textln(f"{order.order_id}")
         printer.textln()
 
-        printer.set_with_default(align="center")
-        printer.textln("Harap bawa ke kasir!")
+        printer.set_with_default(align="center", bold=True, width=2, height=2, custom_size=True)
+        printer.textln("Bawa struk ke kasir!")
         printer.cut()
 
         printer.close()
